@@ -29,7 +29,7 @@ INSTALL ?= install
 CC      ?= gcc
 CFLAGS_EXTRA ?=
 LD      ?= ld
-MDBX_BUILD_OPTIONS ?=-DNDEBUG=1
+MDBX_BUILD_OPTIONS ?=-DNDEBUG=1 -DMDBX_USE_VALGRIND=1
 MDBX_BUILD_TIMESTAMP ?=$(shell date +%Y-%m-%dT%H:%M:%S%z)
 CFLAGS  ?= -std=gnu11 -O2 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -pthread -Wno-error=attributes $(CFLAGS_EXTRA)
 # -Wno-tautological-compare

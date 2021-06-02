@@ -5,6 +5,7 @@ on:
   push:
     branches-ignore:
     - coverity_scan
+    - digging-valgrind
     paths-ignore:
     - '.circleci/**'
     - '.github/actions/spelling/**'
