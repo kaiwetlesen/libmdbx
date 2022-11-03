@@ -9279,6 +9279,8 @@ __cold static int audit_ex(MDBX_txn *txn, size_t retired_stored,
   return MDBX_PROBLEM;
 }
 
+#include "debug_begin.h"
+
 typedef struct gc_update_context {
   size_t retired_stored, loop;
   size_t settled, cleaned_slot, reused_slot, filled_slot;
@@ -9415,7 +9417,7 @@ static __inline void gcu_clean_reserved(MDBX_env *env, MDBX_val pnl) {
  * "checks and balances") to partially bypass the fundamental design problems
  * inherited from LMDB. So do not try to understand it completely in order to
  * avoid your madness. */
-static int update_gc(MDBX_txn *txn, gcu_context_t *ctx) {
+static int __update_gc(MDBX_txn *txn, gcu_context_t *ctx) {
   TRACE("\n>>> @%" PRIaTXN, txn->mt_txnid);
   MDBX_env *const env = txn->mt_env;
   const char *const dbg_prefix_mode = ctx->lifo ? "    lifo" : "    fifo";
@@ -9430,6 +9432,9 @@ static int update_gc(MDBX_txn *txn, gcu_context_t *ctx) {
 
 retry:
   ++ctx->loop;
+  if (ctx->loop > 1)
+    loglevel = (ctx->loop > 2) ? MDBX_LOG_TRACE : MDBX_LOG_VERBOSE;
+
   TRACE("%s", " >> restart");
   int rc = MDBX_SUCCESS;
   tASSERT(txn, pnl_check_allocated(txn->tw.reclaimed_pglist,
@@ -10225,6 +10230,15 @@ bailout:
   TRACE("<<< %zu loops, rc = %d", ctx->loop, rc);
   return rc;
 }
+
+static int update_gc(MDBX_txn *txn, gcu_context_t *ctx) {
+  const uint8_t saved_loglevel = loglevel;
+  int rc = __update_gc(txn, ctx);
+  loglevel = saved_loglevel;
+  return rc;
+}
+
+#include "debug_end.h"
 
 static int txn_write(MDBX_txn *txn, iov_ctx_t *ctx) {
   tASSERT(txn, (txn->mt_flags & MDBX_WRITEMAP) == 0 || MDBX_AVOID_MSYNC);

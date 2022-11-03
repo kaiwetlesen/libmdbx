@@ -36,7 +36,7 @@
 #define mdbx_assert(env, expr) mdbx_ensure(env, expr)
 
 #if !defined(__clang__)
-#pragma GCC optimize("-O0")
+#pragma GCC optimize("-Og")
 #endif
 
 #endif /* GCC only */
