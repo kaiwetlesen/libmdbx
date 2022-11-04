@@ -2700,6 +2700,44 @@ MDBX_INTERNAL_FUNC uint64_t osal_monotime(void) {
   return 0;
 }
 
+MDBX_INTERNAL_FUNC uint64_t osal_cputime(void) {
+#if defined(_WIN32) || defined(_WIN64)
+  FILETIME unused, usermode;
+  if (GetThreadTimes(GetCurrentThread(),
+                     /* CreationTime */ &unused,
+                     /* ExitTime */ &unused,
+                     /* KernelTime */ &unused,
+                     /* UserTime */ &usermode, )) {
+    /* 1 second = 10_000_000 * 100ns = 78125 * (1 << 7) * 100ns
+     * result = (h * f / 10_000_000) << 32) + l * f / 10_000_000
+     *        = ((h * f) >> 7) / 78125) << 32) + ((l * f) >> 7) / 78125
+     * 1) {h, l} *= f
+     * 2) {h, l} >>= 7
+     * 3) result = ((h / 78125) << 32) + l / 78125; */
+    uint64_t l = usermode.dwLowDateTime * performance_frequency.QuadPart;
+    uint64_t h = usermode.dwHighDateTime * performance_frequency.QuadPart;
+    l = h << (64 - 7) | l >> 7;
+    h = h >> 7;
+    return ((h / 78125) << 32) + l / 78125;
+  }
+#elif defined(RUSAGE_THREAD) || defined(RUSAGE_LWP)
+#ifndef RUSAGE_THREAD
+#define RUSAGE_THREAD RUSAGE_LWP /* Solaris */
+#endif
+  struct rusage usage;
+  if (getrusage(RUSAGE_THREAD, &usage) == 0)
+    return usage.ru_utime.tv_sec * UINT64_C(1000000000) +
+           usage.ru_utime.tv_usec * 1000u;
+#elif defined(CLOCK_THREAD_CPUTIME_ID)
+  struct timespec ts;
+  if (likely(clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) == 0))
+    return ts.tv_sec * UINT64_C(1000000000) + ts.tv_nsec;
+#else
+  /* FIXME */
+#endif
+  return 0;
+}
+
 /*----------------------------------------------------------------------------*/
 
 static void bootid_shake(bin128_t *p) {
